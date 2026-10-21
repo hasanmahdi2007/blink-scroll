@@ -74,7 +74,7 @@ class DoubleBlinkConfig:
 @dataclass
 class LongBlinkConfig:
     enabled: bool = False
-    min_duration_s: float = 0.5
+    min_duration_s: float = 0.6  # continuous firm closure; natural blinks are ~0.1-0.35 s
     direction: str = "down"
 
 
@@ -101,10 +101,13 @@ class HeadPoseConfig:
     neutral pose recorded during calibration; gaze uses MediaPipe's eyeLookDown scores."""
 
     enabled: bool = True
-    max_yaw_deg: float = 20.0  # turning left/right
-    max_pitch_deg: float = 12.0  # nodding up/down (e.g. looking at the keyboard)
-    max_roll_deg: float = 20.0  # tilting toward a shoulder
-    max_look_down: float = 0.45  # eyes looking down without moving the head (0..1)
+    max_yaw_deg: float = 25.0  # turning left/right
+    max_pitch_down_deg: float = 12.0  # head lowered toward the keyboard (pitch goes negative)
+    max_pitch_up_deg: float = 25.0
+    max_roll_deg: float = 45.0  # tilting toward a shoulder does not cause false blinks
+    max_look_down: float = 0.55  # eyes looking down without moving the head (0..1)
+    # The neutral pose (from calibration) follows slow posture changes with this time constant.
+    neutral_adapt_s: float = 30.0
 
 
 @dataclass

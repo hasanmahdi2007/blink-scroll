@@ -21,10 +21,10 @@ class Seq:
     samples: list[Sample] = field(default_factory=list)
 
     def _add(self, n: int, left: float, right: float, face: bool = True,
-             pitch: float = 0.0, yaw: float = 0.0) -> Seq:
+             pitch: float = 0.0, yaw: float = 0.0, look_down: float = 0.0) -> Seq:
         for _ in range(n):
             self.samples.append(Sample(t=self.t, face=face, left=left, right=right,
-                                       pitch=pitch, yaw=yaw))
+                                       pitch=pitch, yaw=yaw, look_down=look_down))
             self.t += 1.0 / self.fps
         return self
 

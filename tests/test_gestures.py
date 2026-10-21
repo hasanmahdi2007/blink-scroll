@@ -109,6 +109,44 @@ def test_long_blink_triggers_once_while_held() -> None:
     assert result[0].t - 1.0 == pytest.approx(0.55, abs=0.1)  # fires at ~0.5 s, not on release
 
 
+def test_two_quick_blinks_with_partial_reopen_are_not_a_long_blink() -> None:
+    """Real data: natural pairs often reopen only part way (above the open threshold), so the
+    hysteresis sees one long closure. Long blink needs one *continuous firm* closure."""
+    th = Thresholds.compute(OPEN, CLOSED, CalibrationConfig())
+    half_open = tuple((o + c) / 2 for o, c in zip(th.open_thr, th.closed_thr))
+    seq = Seq().open(1).closed(0.3)
+    for _ in range(4):
+        seq.frame(*half_open)  # partial reopen for 0.2 s
+    seq.closed(0.3).open(1)
+    assert triggers(engine(long=True), seq) == []
+
+
+def test_lids_lowering_raising_gaze_down_does_not_block_a_long_blink() -> None:
+    """eyeLookDown jumps as the lids start to close; the gate is taken from before that."""
+    seq = Seq().open(1)
+    seq.frame(0.25, 0.2, look_down=0.8).frame(0.35, 0.3, look_down=0.8)  # lids lowering
+    seq.closed(1.0).open(1)
+    assert [t.gesture for t in triggers(engine(long=True), seq)] == ["long_blink"]
+
+
+def test_long_blink_while_looking_at_keyboard_is_ignored() -> None:
+    seq = Seq().open(1)
+    seq.open(1.0, look_down=0.7)  # reading the keyboard; blink scores rise a little too
+    seq.closed(1.0, look_down=0.7).open(1)
+    assert triggers(engine(long=True), seq) == []
+
+
+def test_neutral_pose_follows_slow_posture_change() -> None:
+    e = engine()
+    seq = Seq()
+    for i in range(20 * 60):  # leaning back slowly over a minute: pitch drifts to +20
+        seq.frame(*OPEN, pitch=20.0 * i / (20 * 60))
+    seq.open(0.5, pitch=20.0).blink(0.12, pitch=20.0).open(0.15, pitch=20.0)
+    seq.blink(0.12, pitch=20.0).open(1, pitch=20.0)
+    assert len(triggers(e, seq)) == 1
+    assert e.neutral[1] > 10
+
+
 def test_long_blink_disabled_by_default() -> None:
     assert triggers(engine(), Seq().open(1).closed(1.5).open(1)) == []
 
@@ -178,7 +216,7 @@ def test_face_lost_mid_long_blink_does_not_trigger() -> None:
 
 def test_double_blink_while_looking_down_is_ignored() -> None:
     seq = Seq().open(1, pitch=0.0)
-    kw = {"pitch": 25.0}
+    kw = {"pitch": -25.0}
     seq.open(0.5, **kw).blink(0.12, **kw).open(0.15, **kw).blink(0.12, **kw).open(1, **kw)
     assert triggers(engine(), seq) == []
 
@@ -206,7 +244,7 @@ def test_pose_is_relative_to_calibrated_neutral() -> None:
 
 
 def test_gesture_works_again_after_looking_back_up() -> None:
-    down = {"pitch": 25.0}
+    down = {"pitch": -25.0}
     seq = Seq().open(1).open(2, **down).open(0.5)
     seq.blink(0.12).open(0.15).blink(0.12).open(1)
     assert len(triggers(engine(), seq)) == 1

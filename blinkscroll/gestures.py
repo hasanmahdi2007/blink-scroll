@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import statistics
+from collections import deque
 from dataclasses import dataclass
 
 from .config import Config
@@ -42,6 +43,7 @@ EngineEvent = Event | Trigger | GateChanged
 
 
 class GestureEngine:
+    GATE_LEAD_S = 0.15  # judge a gesture by the gate this long before it started
     ADAPT_EVERY = 10  # frames between threshold refreshes during baseline adaptation
     MAX_DRIFT = 0.1  # the baseline may drift at most this far from the calibrated value
 
@@ -56,6 +58,10 @@ class GestureEngine:
         self._calibrated_open: Pair | None = None
         self._adapt_open: list[float] | None = None
         self._adapt_frames = 0
+        self._last_open_t: float | None = None
+        self._gate_hist: deque[tuple[float, str]] = deque(maxlen=64)
+        self._firm_since: float | None = None
+        self._firm_dips = 0
         self._clear()
 
     # ------------------------------------------------------------------ control
@@ -107,23 +113,37 @@ class GestureEngine:
             return frame, out
         if not s.face:
             self._clear()
+            self._last_open_t = None
+            self._firm_since = None
+            self._gate_hist.clear()
             self._set_gate("no face", out)
             return frame, out
 
-        # Blinks are judged with the gate as it was while the eyes were still open.
-        gate_ok = self.gate_reason == ""
+        th = self.tracker.thresholds
+        assert th is not None
+        self._track_firm_closure(s.t, frame, th)
+
+        # The gate is judged on every frame that is not a closure and remembered, so each
+        # gesture can be judged by the gate as it was just *before* it began (lids lowering
+        # already raise eyeLookDown and make pose estimates wobble).
+        not_closed = not frame.closed[0] and not frame.closed[1]
+        if not_closed:
+            reason = self._check_gate(s)
+            self._gate_hist.append((s.t, reason))
+            self._set_gate(reason, out)
+            truly_open = all(frame.smooth[i] < th.open_thr[i] for i in range(2))
+            if reason == "" and truly_open:
+                self._adapt_baseline(frame)
+                if self._last_open_t is not None:
+                    self._adapt_neutral(s, min(s.t - self._last_open_t, 0.5))
+                self._last_open_t = s.t
+
         for ev in eye_events:
-            if isinstance(ev, Blink) and gate_ok and ev.start >= self._cooldown_until:
+            if (isinstance(ev, Blink) and ev.start >= self._cooldown_until
+                    and self._gate_at(ev.start) == ""):
                 self._on_blink(ev, s.t, out)
 
-        both_open = not frame.closed[0] and not frame.closed[1]
-        if both_open:
-            self._set_gate(self._check_gate(s), out)
-            gate_ok = self.gate_reason == ""
-            if gate_ok:
-                self._adapt_baseline(frame)
-
-        if not gate_ok:
+        if not_closed and self.gate_reason:
             self._clear()
             return frame, out
         if s.t >= self._cooldown_until:
@@ -152,10 +172,31 @@ class GestureEngine:
         else:
             self._pending = ev
 
+    def _track_firm_closure(self, t: float, frame: EyeFrame, th: Thresholds) -> None:
+        """Start time of the current *continuous* firm closure (both eyes above the closed
+        threshold, tolerating a single-frame dip). Two quick natural blinks whose reopening
+        stays above the open threshold therefore do not add up to a long blink."""
+        if all(frame.smooth[i] > th.closed_thr[i] for i in range(2)):
+            if self._firm_since is None:
+                self._firm_since = t
+            self._firm_dips = 0
+        elif self._firm_since is not None:
+            self._firm_dips += 1
+            if self._firm_dips > 1:
+                self._firm_since = None
+
+    def _gate_at(self, t: float) -> str:
+        """Gate reason as it was ``GATE_LEAD_S`` before time ``t``."""
+        for ts, reason in reversed(self._gate_hist):
+            if ts <= t - self.GATE_LEAD_S:
+                return reason
+        return self._gate_hist[0][1] if self._gate_hist else self.gate_reason
+
     def _check_long_blink(self, t: float, out: list[EngineEvent]) -> None:
         g = self.cfg.gestures.long_blink
-        since = self.tracker.both_closed_since
-        if not g.enabled or since is None or since < self._cooldown_until:
+        since = self._firm_since
+        if (not g.enabled or since is None or since < self._cooldown_until
+                or self._gate_at(since) != ""):
             return
         if self._long_fired_at is None or self._long_fired_at < since:
             if t - since >= g.min_duration_s:
@@ -180,7 +221,8 @@ class GestureEngine:
             return
         if self._wink_eye != eye:
             self._wink_eye, self._wink_since, self._wink_fired = eye, frame.t, False
-        elif not self._wink_fired and frame.t - self._wink_since >= g.min_duration_s:
+        elif (not self._wink_fired and frame.t - self._wink_since >= g.min_duration_s
+              and self._gate_at(self._wink_since) == ""):
             self._wink_fired = True
             self._pending = None
             name, direction = (("wink_left", g.left_direction) if eye == 0
@@ -216,13 +258,25 @@ class GestureEngine:
                             s.roll - self.neutral[2])
         if abs(yaw) > hp.max_yaw_deg:
             return "head turned"
-        if abs(pitch) > hp.max_pitch_deg:
-            return "head tilted up/down"
+        if pitch < -hp.max_pitch_down_deg:
+            return "head down"
+        if pitch > hp.max_pitch_up_deg:
+            return "head up"
         if abs(roll) > hp.max_roll_deg:
             return "head tilted sideways"
         if s.look_down > hp.max_look_down:
             return "looking down"
         return ""
+
+    def _adapt_neutral(self, s: Sample, dt: float) -> None:
+        """Let the neutral pose follow slow posture changes while facing the screen."""
+        tau = self.cfg.head_pose.neutral_adapt_s
+        if tau <= 0 or dt <= 0:
+            return
+        a = min(dt / tau, 1.0)
+        self.neutral = (self.neutral[0] + a * (s.yaw - self.neutral[0]),
+                        self.neutral[1] + a * (s.pitch - self.neutral[1]),
+                        self.neutral[2] + a * (s.roll - self.neutral[2]))
 
     def _set_gate(self, reason: str, out: list[EngineEvent]) -> None:
         if reason != self.gate_reason:
