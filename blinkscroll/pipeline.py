@@ -73,6 +73,8 @@ def _beep(*tones: tuple[int, int]) -> None:
 
 
 class Pipeline:
+    BOOST_FRACTION = 0.35  # see _update_boost
+
     def __init__(self, config: Config, debug: bool = False, record: Path | None = None,
                  start_paused: bool = False) -> None:
         self._config = config
@@ -99,6 +101,7 @@ class Pipeline:
         self.on_debug_closed: Callable[[], None] | None = None
         self._flash = ""
         self._last_face = time.monotonic()
+        self._boost_until = 0.0
 
     # ------------------------------------------------------------------ public, thread-safe
 
@@ -188,6 +191,7 @@ class Pipeline:
                 sample = extractor.process(frame.image, frame.timestamp)
                 self.fps.tick(time.monotonic())
                 eye, events = self.engine.update(sample)
+                self._update_boost(eye)
                 names = [self._handle(ev) for ev in events]
                 self._update_state(sample)
                 if recorder is not None:
@@ -229,7 +233,29 @@ class Pipeline:
 
     def _target_fps(self) -> float:
         p = self._config.processing
-        return p.low_power_fps if self.low_power else p.fps
+        if self.low_power:
+            return p.low_power_fps
+        if time.monotonic() < self._boost_until:
+            return p.fps
+        idle = p.idle_fps
+        if self._config.gestures.double_blink.enabled:
+            idle = max(idle, 15.0)
+        return min(idle, p.fps)
+
+    def _update_boost(self, eye: EyeFrame) -> None:
+        """Full frame rate while something is happening; idle rate while the eyes are open."""
+        th = self.engine.thresholds
+        if self.engine.tracker.calibrating or self.engine.holding is not None or th is None:
+            busy = True
+        elif not eye.face or self.engine.gate_reason:
+            busy = False  # no gesture can count right now (e.g. looking at the keyboard)
+        else:
+            # An eye starting to close. Below the wink line (40%), so winks always get the
+            # full rate before they are recognised; above the slight lid lowering of reading.
+            busy = any(eye.smooth[i] > th.open_level[i] + self.BOOST_FRACTION
+                       * (th.closed_level[i] - th.open_level[i]) for i in range(2))
+        if busy:
+            self._boost_until = time.monotonic() + self._config.processing.boost_hold_s
 
     def _apply_pending_config(self) -> None:
         with self._lock:

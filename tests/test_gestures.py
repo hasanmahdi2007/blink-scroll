@@ -106,7 +106,7 @@ def test_long_blink_triggers_once_while_held() -> None:
     seq = Seq().open(1).closed(1.5).open(1)
     result = triggers(engine(long=True), seq)
     assert [t.gesture for t in result] == ["long_blink"]
-    assert result[0].t - 1.0 == pytest.approx(0.55, abs=0.1)  # fires at ~0.5 s, not on release
+    assert result[0].t - 1.0 == pytest.approx(0.65, abs=0.1)  # fires at ~0.6 s, not on release
 
 
 def test_two_quick_blinks_with_partial_reopen_are_not_a_long_blink() -> None:
@@ -127,6 +127,17 @@ def test_lids_lowering_raising_gaze_down_does_not_block_a_long_blink() -> None:
     seq.frame(0.25, 0.2, look_down=0.8).frame(0.35, 0.3, look_down=0.8)  # lids lowering
     seq.closed(1.0).open(1)
     assert [t.gesture for t in triggers(engine(long=True), seq)] == ["long_blink"]
+
+
+def test_lids_lowered_by_looking_down_are_not_a_long_blink() -> None:
+    """Real data: looking at the keyboard held the scores at ~74% / ~57% of the closed level
+    for over a second while the eyes were open, and the gate had not caught up yet."""
+    lowered = (OPEN[0] + 0.74 * (CLOSED[0] - OPEN[0]), OPEN[1] + 0.57 * (CLOSED[1] - OPEN[1]))
+    seq = Seq().open(1)
+    for _ in range(40):  # 2 s
+        seq.frame(*lowered)
+    seq.open(1)
+    assert triggers(engine(long=True), seq) == []
 
 
 def test_long_blink_while_looking_at_keyboard_is_ignored() -> None:
@@ -152,7 +163,7 @@ def test_long_blink_disabled_by_default() -> None:
 
 
 def test_long_blink_then_quick_blink_is_not_a_double() -> None:
-    seq = Seq().open(1).closed(0.6).open(0.1).blink(0.1).open(1)
+    seq = Seq().open(1).closed(0.9).open(0.1).blink(0.1).open(1)
     result = triggers(engine(long=True), seq)
     assert [t.gesture for t in result] == ["long_blink"]
 

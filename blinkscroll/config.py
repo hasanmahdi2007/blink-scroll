@@ -29,7 +29,12 @@ class CameraConfig:
 
 @dataclass
 class ProcessingConfig:
-    fps: float = 20.0  # processing cap in normal mode
+    fps: float = 20.0  # while an eye is closing / a gesture is held, and during calibration
+    # While both eyes are simply open. The model costs ~13 ms per frame whatever the image size,
+    # so frame rate is what decides CPU use. (At least 15 when double blink is enabled: quick
+    # blinks need the frames.)
+    idle_fps: float = 8.0
+    boost_hold_s: float = 1.0  # stay at full rate this long after the eyes are open again
     inference_width: int = 320  # frames are downscaled to this width before inference
     low_power_after_s: float = 10.0  # no face for this long -> low-power mode
     low_power_fps: float = 4.0
@@ -76,6 +81,9 @@ class DoubleBlinkConfig:
 class LongBlinkConfig:
     enabled: bool = False
     min_duration_s: float = 0.6  # continuous firm closure; natural blinks are ~0.1-0.35 s
+    # Both eyes must be at least this far from open to closed. Looking down at the keyboard
+    # lowers the lids to ~55-75% for seconds; a real long blink reaches ~100%.
+    min_closure: float = 0.85
     direction: str = "down"
 
 

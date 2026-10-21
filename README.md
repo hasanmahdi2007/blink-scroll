@@ -165,16 +165,30 @@ Settings live in `config.toml`, created with defaults on first run. Edit it, the
 Laptop: Windows 11, built-in webcam at 640x480, inference on 320-px frames (about 3.3 ms per
 frame). "% of total" covers all 8 logical CPUs.
 
-| Mode | CPU (one core) | CPU (total) | Processing FPS |
+With a face in view, the landmark and blendshape models cost about 13 ms per frame whatever the
+image size, so the frame rate is what decides CPU use. The app therefore runs an **adaptive
+frame rate**:
+- 8 fps while your eyes are simply open
+- 20 fps as soon as an eye starts closing, while a gesture is held, and during calibration
+- no boost while you look away or down, because no gesture can count then
+
+Replaying the recordings even at a flat 6 fps still caught every long blink.
+
+| Mode (face in view unless noted) | CPU (one core) | CPU (total) | Processing FPS |
 |---|---|---|---|
-| Active, 15 fps (no debug window) | ~11% | ~1.4% | 15.1-15.5 |
-| Active, 15 fps, with debug window | ~20% | ~2.5% | 14.8 |
-| Low-power, no face (4 fps) | 0.3-1.1% | 0.04-0.14% | <=4 |
+| **Active, adaptive 8 -> 20 fps (default)** | **17-22%** | **2.2-2.8%** | 8-10 average |
+| Active, fixed 20 fps (`idle_fps = 20`) | 34-37% | 4.3-4.6% | 20 |
+| Active, fixed 10 fps | ~20% (bare pipeline) | ~2.5% | 10 |
+| Low-power, no face for 10 s (4 fps) | 0.3-1.1% | 0.04-0.14% | <=4 |
 | Paused / Windows locked (camera released) | 0.0% | 0.0% | 0 |
 
-> Note: the low-power figure was taken with the session locked, when the camera delivered black
-> frames at ~1 fps, so it is a lower bound. Active mode at the current 20 fps default is
-> re-measured in the next update.
+What did *not* help:
+- a smaller camera resolution (320x240): same CPU
+- a smaller model input: the model resizes internally anyway
+- pinning the process to 1-2 cores: about 2% less, not worth it
+
+The low-power figure was taken while the session was locked and the camera delivered black
+frames at ~1 fps, so treat it as a lower bound.
 
 ## Development
 

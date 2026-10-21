@@ -190,10 +190,14 @@ class GestureEngine:
             self._pending = ev
 
     def _track_firm_closure(self, t: float, frame: EyeFrame, th: Thresholds) -> None:
-        """Start time of the current *continuous* firm closure (both eyes above the closed
-        threshold, tolerating a single-frame dip). Two quick natural blinks whose reopening
-        stays above the open threshold therefore do not add up to a long blink."""
-        if all(frame.smooth[i] > th.closed_thr[i] for i in range(2)):
+        """Start time of the current *continuous* firm closure (both eyes nearly fully closed,
+        tolerating a single-frame dip). Two quick natural blinks whose reopening stays above
+        the open threshold do not add up to a long blink, and neither do lids lowered by
+        looking down at the keyboard."""
+        f = self.cfg.gestures.long_blink.min_closure
+        if all(frame.smooth[i] > max(th.closed_thr[i], th.open_level[i]
+                                     + f * (th.closed_level[i] - th.open_level[i]))
+               for i in range(2)):
             if self._firm_since is None:
                 self._firm_since = t
             self._firm_dips = 0
