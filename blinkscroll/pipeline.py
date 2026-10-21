@@ -193,7 +193,11 @@ class Pipeline:
                                    [n for n in names if n])
 
                 if view is not None:
-                    view.update(frame.image, self._debug_info(sample, eye))
+                    try:
+                        view.update(frame.image, self._debug_info(sample, eye))
+                    except Exception:  # a broken preview must never stop detection
+                        log.exception("Debug window failed; continuing without it")
+                        view.closed = True
                     if view.last_key == "c":
                         self.engine.recalibrate()
                     if view.closed:

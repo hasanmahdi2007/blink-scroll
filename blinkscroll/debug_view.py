@@ -95,8 +95,11 @@ class DebugView:
     def close(self) -> None:
         if not self.closed:
             self.closed = True
-            cv2.destroyWindow(WINDOW)
-            cv2.waitKey(1)
+            try:
+                cv2.destroyWindow(WINDOW)  # fails if the user already closed it with X
+                cv2.waitKey(1)
+            except cv2.error:
+                pass
 
     def _bars(self, canvas: np.ndarray, x0: int, y0: int, info: DebugInfo) -> None:
         width = _W - x0 - 20
