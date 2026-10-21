@@ -73,6 +73,7 @@ class GestureEngine:
         self._firm_dips = 0
         self._holding: str | None = None
         self._hold_start = 0.0
+        self._release_since: float | None = None
         self._clear()
 
     # ------------------------------------------------------------------ control
@@ -267,13 +268,19 @@ class GestureEngine:
         if self._holding is None:
             return False
         if self._holding == "long_blink":
-            still = self._firm_since is not None
+            f = self.cfg.detection.hold_closure
+            still = all(self._wink_closed(frame, i, f) for i in range(2))
         else:
             eye = 0 if self._holding == "wink_left" else 1
             still = self._wink_closed(frame, eye, self.cfg.gestures.wink.release_fraction)
         if still:
+            self._release_since = None
             return True
-        self._end_hold(t, out)
+        if self._release_since is None:
+            self._release_since = t
+        if t - self._release_since < self.cfg.detection.release_s:
+            return True  # debounce: a brief dip does not end the hold
+        self._end_hold(self._release_since, out)
         return False
 
     def _end_hold(self, t: float, out: list[EngineEvent]) -> None:
@@ -282,7 +289,8 @@ class GestureEngine:
         out.append(HoldEnded(t, self._holding, t - self._hold_start))
         log.debug("Hold %s released after %.2f s", self._holding, t - self._hold_start)
         self._holding = None
-        self._cooldown_until = t + self.cfg.detection.cooldown_s
+        self._release_since = None
+        self._cooldown_until = t + self.cfg.detection.cooldown_after_hold_s
 
     @property
     def holding(self) -> str | None:

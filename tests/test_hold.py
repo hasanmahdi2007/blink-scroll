@@ -53,6 +53,34 @@ def test_long_blink_hold_ends_when_eyes_open() -> None:
     assert evs[1].duration == pytest.approx(3.0 - 0.6, abs=0.15)
 
 
+def test_brief_dips_do_not_interrupt_a_held_wink() -> None:
+    """Real log: holds ended after 0.1-0.4 s because of one-frame dips in the score."""
+    seq = Seq().open(1).wink("left", 0.6)
+    for _ in range(3):  # three single-frame dips to "open" during a 2 s hold
+        seq.frame(*OPEN).wink("left", 0.4)
+    seq.open(1)
+    evs = events(engine(), seq)
+    assert [type(ev).__name__ for ev in evs] == ["Trigger", "HoldEnded"]
+    assert evs[1].duration > 1.5
+
+
+def test_long_blink_hold_continues_while_partly_closed() -> None:
+    partly = tuple(o + 0.6 * (c - o) for o, c in zip(OPEN, CLOSED))  # 60% closed
+    seq = Seq().open(1).closed(1.0)
+    for _ in range(30):
+        seq.frame(*partly)
+    seq.open(1)
+    evs = events(engine(), seq)
+    assert [type(ev).__name__ for ev in evs] == ["Trigger", "HoldEnded"]
+    assert evs[1].duration > 1.5
+
+
+def test_wink_again_soon_after_release() -> None:
+    seq = Seq().open(1).wink("left", 1.0).open(0.6).wink("left", 1.0).open(1)
+    assert [type(ev).__name__ for ev in events(engine(), seq)] == [
+        "Trigger", "HoldEnded", "Trigger", "HoldEnded"]
+
+
 def test_face_lost_ends_hold() -> None:
     evs = events(engine(), Seq().open(1).wink("left", 1.0).no_face(1.0).open(1))
     assert isinstance(evs[-1], HoldEnded)

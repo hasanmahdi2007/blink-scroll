@@ -63,6 +63,13 @@ class DetectionConfig:
     smoothing_tau_s: float = 0.04  # EMA time constant; 0 = no smoothing
     min_closed_frames: int = 2  # closures shorter than this are noise
     cooldown_s: float = 1.0
+    cooldown_after_hold_s: float = 0.4  # shorter: lets you wink again quickly after a hold
+    # A held gesture ends only after the eye has been open this long without interruption,
+    # so a one-frame dip in the score (glare, model wobble) does not stop the scroll.
+    release_s: float = 0.15
+    # While a long blink is held, both eyes only need to stay this far closed (it needs
+    # long_blink.min_closure to start).
+    hold_closure: float = 0.5
     swap_eyes: bool = False  # set true if left/right winks come out reversed
 
 
