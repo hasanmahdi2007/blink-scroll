@@ -69,11 +69,27 @@ The result is saved, so later starts skip this. Recalibrate from the tray or cir
 
 | Gesture | Default | Action |
 |---|---|---|
-| Fast double blink: two full blinks, the 2nd ending within 0.7 s of the 1st starting | **on** | scroll down |
-| Long blink: both eyes closed for 0.5 s or more | off | scroll down |
-| Wink: one eye closed for 0.25 s or more, the other clearly open | off | left = up, right = down |
+| Fast double blink: two full blinks, the 2nd ending within 0.7 s of the 1st starting | **on** | scroll down (5 notches over 150 ms) |
+| Long blink: both eyes closed for 0.6 s or more | off | scroll down **while held** |
+| Wink: one eye closed for 0.25 s or more, the other clearly open | off | **while held**: left = down, right = up (configurable) |
 
-After any trigger there is a 1 s cooldown. Each scroll is 5 wheel notches spread over 150 ms.
+**Hold to scroll** (`scroll.hold_to_scroll`, on by default): once a wink or long blink is
+recognised, the page keeps scrolling for as long as you hold it, so how long you hold decides
+how far it goes. The speed starts at 4 notches/s and ramps to 12 notches/s over 2 s. It stops
+when you open the eye, and after 20 s at the latest. After every gesture there is a 1 s
+cooldown.
+
+Winks use their own lower closed line (40% of the way from open to closed), because a wink
+closes the eye less than a full blink. That is safe because the other eye must stay open at the
+same time. If left and right come out reversed, set `detection.swap_eyes = true`.
+
+**Which gesture?** It depends on how you blink. Run `tune.bat` (a guided 3-minute recording) and
+compare the options with the replay tool. For one user with glasses, the recordings gave:
+- long blink: 12 of 12 detected
+- left wink: every clean wink detected
+- fast double blink: only 2 of 11, because their deliberate double blinks often merged into one
+  closure, and natural blink pairs while reading looked the same
+- false scrolls across 200 s of reading, keyboard use and head turning: 0-1
 
 ## How it works
 

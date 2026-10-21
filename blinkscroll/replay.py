@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .config import DEFAULT_CONFIG_PATH, load_config
 from .eyes import Blink, Calibrated
-from .gestures import GateChanged, GestureEngine, Trigger
+from .gestures import GateChanged, GestureEngine, HoldEnded, Trigger
 from .recorder import read_samples
 
 
@@ -47,7 +47,10 @@ def main() -> None:
                       f"peak L{ev.peak[0]:.2f} R{ev.peak[1]:.2f}")
             elif isinstance(ev, Trigger):
                 triggers += 1
-                print(f"{t:7.2f}s >>> TRIGGER {ev.gesture} -> scroll {ev.direction}")
+                print(f"{t:7.2f}s >>> TRIGGER {ev.gesture} -> scroll {ev.direction}"
+                      + (" (while held)" if ev.hold else ""))
+            elif isinstance(ev, HoldEnded):
+                print(f"{t:7.2f}s     released after {ev.duration:.1f} s")
             elif isinstance(ev, GateChanged):
                 print(f"{t:7.2f}s gate: {ev.reason or 'facing screen'}")
     face = sum(s.face for s in samples) / len(samples)

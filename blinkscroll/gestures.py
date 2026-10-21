@@ -15,6 +15,7 @@ Sample -> EyeTracker (smoothing, calibration, hysteresis, blinks) -> this state 
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import statistics
 from collections import deque
@@ -32,6 +33,14 @@ class Trigger:
     t: float
     gesture: str  # "double_blink", "long_blink", "wink_left", "wink_right"
     direction: str  # "up" or "down"
+    hold: bool = False  # True: keep scrolling until HoldEnded
+
+
+@dataclass(frozen=True)
+class HoldEnded:
+    t: float
+    gesture: str
+    duration: float  # seconds from trigger to release
 
 
 @dataclass(frozen=True)
@@ -39,7 +48,7 @@ class GateChanged:
     reason: str  # "" when gestures are allowed again
 
 
-EngineEvent = Event | Trigger | GateChanged
+EngineEvent = Event | Trigger | HoldEnded | GateChanged
 
 
 class GestureEngine:
@@ -62,11 +71,14 @@ class GestureEngine:
         self._gate_hist: deque[tuple[float, str]] = deque(maxlen=64)
         self._firm_since: float | None = None
         self._firm_dips = 0
+        self._holding: str | None = None
+        self._hold_start = 0.0
         self._clear()
 
     # ------------------------------------------------------------------ control
 
     def recalibrate(self) -> None:
+        self._holding = None  # the pipeline stops the scroller
         self._pose_samples.clear()
         self.tracker.recalibrate()
         self._clear()
@@ -94,6 +106,8 @@ class GestureEngine:
     # ------------------------------------------------------------------ per frame
 
     def update(self, s: Sample) -> tuple[EyeFrame, list[EngineEvent]]:
+        if self.cfg.detection.swap_eyes:
+            s = dataclasses.replace(s, left=s.right, right=s.left)
         frame, eye_events = self.tracker.update(s)
         out: list[EngineEvent] = list(eye_events)
 
@@ -112,6 +126,7 @@ class GestureEngine:
         if not frame.calibrated:
             return frame, out
         if not s.face:
+            self._end_hold(s.t, out)
             self._clear()
             self._last_open_t = None
             self._firm_since = None
@@ -122,6 +137,8 @@ class GestureEngine:
         th = self.tracker.thresholds
         assert th is not None
         self._track_firm_closure(s.t, frame, th)
+        if self._update_hold(s.t, frame, out):
+            return frame, out  # while a gesture is held, nothing else is detected
 
         # The gate is judged on every frame that is not a closure and remembered, so each
         # gesture can be judged by the gate as it was just *before* it began (lids lowering
@@ -209,7 +226,7 @@ class GestureEngine:
         th = self.tracker.thresholds
         if not g.enabled or th is None:
             return
-        left, right = frame.closed
+        left, right = (self._wink_closed(frame, i, g.closed_fraction) for i in range(2))
         if left == right:  # both open, or both closed (a blink, not a wink)
             self._wink_eye = None
             self._wink_fired = False
@@ -231,9 +248,47 @@ class GestureEngine:
 
     def _fire(self, t: float, gesture: str, direction: str, out: list[EngineEvent]) -> None:
         self.trigger_count += 1
+        hold = self.cfg.scroll.hold_to_scroll and gesture != "double_blink"
+        if hold:
+            self._holding, self._hold_start = gesture, t
+            self._cooldown_until = float("inf")  # until released
+        else:
+            self._cooldown_until = t + self.cfg.detection.cooldown_s
+        out.append(Trigger(t, gesture, direction, hold))
+        log.debug("TRIGGER #%d %s -> scroll %s%s", self.trigger_count, gesture, direction,
+                  " (hold)" if hold else "")
+
+    def _update_hold(self, t: float, frame: EyeFrame, out: list[EngineEvent]) -> bool:
+        """Keep a held gesture going; returns True while it is still held."""
+        if self._holding is None:
+            return False
+        if self._holding == "long_blink":
+            still = self._firm_since is not None
+        else:
+            eye = 0 if self._holding == "wink_left" else 1
+            still = self._wink_closed(frame, eye, self.cfg.gestures.wink.release_fraction)
+        if still:
+            return True
+        self._end_hold(t, out)
+        return False
+
+    def _end_hold(self, t: float, out: list[EngineEvent]) -> None:
+        if self._holding is None:
+            return
+        out.append(HoldEnded(t, self._holding, t - self._hold_start))
+        log.debug("Hold %s released after %.2f s", self._holding, t - self._hold_start)
+        self._holding = None
         self._cooldown_until = t + self.cfg.detection.cooldown_s
-        out.append(Trigger(t, gesture, direction))
-        log.debug("TRIGGER #%d %s -> scroll %s", self.trigger_count, gesture, direction)
+
+    @property
+    def holding(self) -> str | None:
+        return self._holding
+
+    def _wink_closed(self, frame: EyeFrame, eye: int, fraction: float) -> bool:
+        th = self.tracker.thresholds
+        assert th is not None
+        level = th.open_level[eye] + fraction * (th.closed_level[eye] - th.open_level[eye])
+        return frame.smooth[eye] > level
 
     def _full_closure(self, ev: Blink, fraction: float) -> bool:
         th = self.tracker.thresholds

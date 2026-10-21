@@ -21,7 +21,7 @@ from .camera import CameraCapture
 from .config import Config
 from .debug_view import DebugInfo, DebugView
 from .eyes import Blink, Calibrated, CalibrationPhase, EyeFrame, Phase
-from .gestures import EngineEvent, GateChanged, GestureEngine, Trigger
+from .gestures import EngineEvent, GateChanged, GestureEngine, HoldEnded, Trigger
 from .landmarks import LandmarkExtractor
 from .recorder import CsvRecorder
 from .samples import Sample
@@ -127,6 +127,7 @@ class Pipeline:
     def pause(self) -> None:
         if not self.paused:
             log.info("Paused: camera released")
+            self.scroller.stop_hold()
             self._active.clear()
             self._set_state(State.PAUSED)
 
@@ -177,6 +178,7 @@ class Pipeline:
                     seq = 0
                 if self._recalibrate.is_set():
                     self._recalibrate.clear()
+                    self.scroller.stop_hold()
                     self.engine.recalibrate()
 
                 frame = self._camera.read_latest(seq, timeout=2.0)
@@ -199,6 +201,7 @@ class Pipeline:
                         log.exception("Debug window failed; continuing without it")
                         view.closed = True
                     if view.last_key == "c":
+                        self.scroller.stop_hold()
                         self.engine.recalibrate()
                     if view.closed:
                         view = None
@@ -299,10 +302,18 @@ class Pipeline:
             self._flash = f"BLINK #{self.engine.blink_count}"
             name = "blink"
         elif isinstance(ev, Trigger):
-            log.info("Trigger: %s -> scroll %s", ev.gesture, ev.direction)
-            self.scroller.scroll(ev.direction)
+            log.info("Trigger: %s -> scroll %s%s", ev.gesture, ev.direction,
+                     " (while held)" if ev.hold else "")
+            if ev.hold:
+                self.scroller.start_hold(ev.direction)
+            else:
+                self.scroller.scroll(ev.direction)
             self._flash = f"SCROLL {ev.direction.upper()} ({ev.gesture})"
             name = f"trigger:{ev.gesture}"
+        elif isinstance(ev, HoldEnded):
+            log.info("Released %s after %.1f s", ev.gesture, ev.duration)
+            self.scroller.stop_hold()
+            name = f"release:{ev.gesture}"
         elif isinstance(ev, GateChanged):
             name = f"gate:{ev.reason or 'ok'}"
         for listener in self._event_listeners:

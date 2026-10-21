@@ -144,6 +144,7 @@ class Calibrator:
     _open_level: Pair | None = None
 
     LEADIN_S = 0.6
+    MAX_OPEN_LEVEL = 0.3  # an "open" baseline above this means the eyes were mostly closed
     MIN_COVERAGE = 0.5  # need face samples for at least this share of the phase
 
     def start_message(self) -> CalibrationPhase:
@@ -166,7 +167,11 @@ class Calibrator:
             if elapsed >= cfg.open_seconds:
                 if not self._enough(self._open, cfg.open_seconds):
                     return self._restart(t, "no face during calibration, retrying")
-                self._open_level = _median_pair(self._open)
+                # A low percentile ignores blinks and early eye closures in this phase.
+                self._open_level = _percentile_pair(self._open, 0.25)
+                if max(self._open_level) > self.MAX_OPEN_LEVEL:
+                    return self._restart(t, "eyes looked closed during the eyes-open phase; "
+                                            "keep them open until the beep")
                 if not cfg.use_closed_phase:
                     return self._finish(None)
                 return self._enter(Phase.CLOSE_LEADIN, t, "Now close your eyes until the 2nd beep")
@@ -194,13 +199,21 @@ class Calibrator:
         log.warning("Calibration: %s", reason)
         self._open.clear()
         self._closed.clear()
-        return self._enter(Phase.OPEN, t, "Calibrating: look at the screen with eyes open")
+        return self._enter(Phase.OPEN, t, "Calibrating again: keep your eyes OPEN, look at the "
+                                          "screen")
 
     def _finish(self, closed: Pair | None) -> list[Event]:
         assert self._open_level is not None
         th = Thresholds.compute(self._open_level, closed, self.cfg)
         self.phase = Phase.DONE
         return [CalibrationPhase(Phase.DONE, "Calibration done"), Calibrated(th)]
+
+
+def _percentile_pair(samples: list[Pair], q: float) -> Pair:
+    def pct(values: list[float]) -> float:
+        values = sorted(values)
+        return values[min(int(q * len(values)), len(values) - 1)]
+    return (pct([s[0] for s in samples]), pct([s[1] for s in samples]))
 
 
 def _median_pair(samples: list[Pair]) -> Pair:

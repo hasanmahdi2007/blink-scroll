@@ -58,6 +58,7 @@ class DetectionConfig:
     smoothing_tau_s: float = 0.04  # EMA time constant; 0 = no smoothing
     min_closed_frames: int = 2  # closures shorter than this are noise
     cooldown_s: float = 1.0
+    swap_eyes: bool = False  # set true if left/right winks come out reversed
 
 
 @dataclass
@@ -83,6 +84,11 @@ class WinkConfig:
     enabled: bool = False
     # The eye that must stay open must be at most this far above its open baseline.
     open_eye_margin: float = 0.1
+    # Winks close the eye less than full blinks, so they use their own (lower) thresholds,
+    # as a fraction of the way from the open to the closed level. Safe because the other eye
+    # must stay open at the same time.
+    closed_fraction: float = 0.4
+    release_fraction: float = 0.25  # a held wink ends when the eye opens below this
     min_duration_s: float = 0.25
     left_direction: str = "up"  # winking the left eye
     right_direction: str = "down"  # winking the right eye
@@ -115,6 +121,12 @@ class ScrollConfig:
     amount: float = 5.0  # wheel notches per trigger (1 notch ~ 3 lines in most apps)
     steps: int = 5  # split into this many wheel events; > amount = sub-notch steps
     duration_s: float = 0.15
+    # Hold-to-scroll: keep scrolling while a wink / long blink is held; longer hold = further.
+    hold_to_scroll: bool = True
+    hold_start_notches_per_s: float = 4.0
+    hold_max_notches_per_s: float = 12.0
+    hold_ramp_s: float = 2.0  # time to reach full speed
+    max_hold_s: float = 20.0  # safety limit
 
 
 @dataclass
