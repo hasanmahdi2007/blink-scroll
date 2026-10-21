@@ -1,5 +1,7 @@
 # Blink Scroll
 
+[![tests](https://github.com/hasanmahdi2007/blink-scroll/actions/workflows/tests.yml/badge.svg)](https://github.com/hasanmahdi2007/blink-scroll/actions/workflows/tests.yml) ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6) ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB) [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **Scroll any window hands-free with your eyes.** Blink Scroll watches you through your laptop
 webcam and scrolls the window under your mouse cursor when you make a deliberate eye gesture.
 **Hold a wink, and the page keeps scrolling for as long as you hold it.** Normal blinking, reading
