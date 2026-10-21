@@ -29,10 +29,11 @@ class CameraConfig:
 
 @dataclass
 class ProcessingConfig:
-    fps: float = 15.0  # processing cap in normal mode
+    fps: float = 20.0  # processing cap in normal mode
     inference_width: int = 320  # frames are downscaled to this width before inference
     low_power_after_s: float = 10.0  # no face for this long -> low-power mode
     low_power_fps: float = 4.0
+    pause_when_locked: bool = True  # release the camera while Windows is locked
     model_path: str = ""  # empty -> models/face_landmarker.task in the project
 
 
@@ -41,19 +42,20 @@ class CalibrationConfig:
     open_seconds: float = 3.0  # phase 1: keep eyes open
     closed_seconds: float = 1.5  # phase 2: keep eyes closed (helps with glasses)
     use_closed_phase: bool = True
+    reuse_saved: bool = True  # start with the last calibration (no beeps); recalibrate from menu
     # Thresholds as a fraction of the way from the open baseline to the closed level.
     closed_fraction: float = 0.6
-    open_fraction: float = 0.35
+    open_fraction: float = 0.3
     # Fallback when the closed phase is skipped or unusable: offsets above the open baseline.
-    closed_offset: float = 0.35
-    open_offset: float = 0.18
-    min_contrast: float = 0.2  # closed level must exceed the open baseline by at least this
+    closed_offset: float = 0.25
+    open_offset: float = 0.12
+    min_contrast: float = 0.15  # closed level must exceed the open baseline by at least this
     adapt_rate: float = 0.002  # per-frame EMA rate for slow baseline adaptation (0 = off)
 
 
 @dataclass
 class DetectionConfig:
-    smoothing_alpha: float = 0.6  # EMA weight of the newest sample (1 = no smoothing)
+    smoothing_tau_s: float = 0.04  # EMA time constant; 0 = no smoothing
     min_closed_frames: int = 2  # closures shorter than this are noise
     cooldown_s: float = 1.0
 
@@ -62,6 +64,10 @@ class DetectionConfig:
 class DoubleBlinkConfig:
     enabled: bool = True
     window_s: float = 0.7  # 2nd blink must end within this long after the 1st one started
+    max_blink_s: float = 0.45  # longer closures are not part of a double blink
+    # Each blink must close the eyes at least this far from the open to the closed level;
+    # deliberate blinks close fully, many natural ones only partly.
+    min_closure: float = 0.7
     direction: str = "down"
 
 
@@ -77,7 +83,7 @@ class WinkConfig:
     enabled: bool = False
     # The eye that must stay open must be at most this far above its open baseline.
     open_eye_margin: float = 0.1
-    min_duration_s: float = 0.15
+    min_duration_s: float = 0.25
     left_direction: str = "up"  # winking the left eye
     right_direction: str = "down"  # winking the right eye
 
@@ -91,17 +97,20 @@ class GesturesConfig:
 
 @dataclass
 class HeadPoseConfig:
+    """Gestures only count while you face the screen. Angles are measured relative to your
+    neutral pose recorded during calibration; gaze uses MediaPipe's eyeLookDown scores."""
+
     enabled: bool = True
-    max_yaw_deg: float = 20.0
-    max_pitch_up_deg: float = 20.0
-    max_pitch_down_deg: float = 15.0  # looking down at the keyboard
-    max_roll_deg: float = 20.0
+    max_yaw_deg: float = 20.0  # turning left/right
+    max_pitch_deg: float = 12.0  # nodding up/down (e.g. looking at the keyboard)
+    max_roll_deg: float = 20.0  # tilting toward a shoulder
+    max_look_down: float = 0.45  # eyes looking down without moving the head (0..1)
 
 
 @dataclass
 class ScrollConfig:
-    amount: int = 5  # wheel notches per trigger
-    steps: int = 5  # split into this many small wheel events
+    amount: float = 5.0  # wheel notches per trigger (1 notch ~ 3 lines in most apps)
+    steps: int = 5  # split into this many wheel events; > amount = sub-notch steps
     duration_s: float = 0.15
 
 

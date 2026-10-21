@@ -14,3 +14,4 @@ class Sample:
     yaw: float = 0.0  # degrees
     pitch: float = 0.0
     roll: float = 0.0
+    look_down: float = 0.0  # mean of eyeLookDownLeft/Right (gaze toward the keyboard)

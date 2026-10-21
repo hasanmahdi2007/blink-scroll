@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
-WINDOW = "Blink Scroll - debug (q to close)"
+WINDOW = "Blink Scroll - debug (q: quit, c: recalibrate)"
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
-_W, _H = 760, 420
+_W, _H = 760, 480
 _THUMB_W = 320
 _PLOT_H = 150
 _HISTORY = 240
@@ -38,6 +38,7 @@ class DebugInfo:
     face: bool = False
     lines: list[str] = field(default_factory=list)
     flash: str = ""  # short event text (BLINK / TRIGGER) highlighted for a moment
+    banner: str = ""  # persistent instruction, e.g. during calibration
 
 
 class DebugView:
@@ -47,6 +48,7 @@ class DebugView:
         self._flash = ""
         self._flash_frames = 0
         self.closed = False
+        self.last_key = ""  # key pressed during the last update ("" if none)
         cv2.namedWindow(WINDOW, cv2.WINDOW_AUTOSIZE)
 
     def update(self, image: np.ndarray | None, info: DebugInfo) -> None:
@@ -78,9 +80,15 @@ class DebugView:
                         cv2.LINE_AA)
             self._flash_frames -= 1
         self._plot(canvas, _H - _PLOT_H, info)
+        if info.banner:
+            (tw, th), _ = cv2.getTextSize(info.banner, _FONT, 0.6, 2)
+            bx, by = max((_W - tw) // 2, 4), _H - _PLOT_H - 18
+            cv2.rectangle(canvas, (bx - 8, by - th - 8), (bx + tw + 8, by + 8), (0, 0, 0), -1)
+            cv2.putText(canvas, info.banner, (bx, by), _FONT, 0.6, (0, 220, 255), 2, cv2.LINE_AA)
 
         cv2.imshow(WINDOW, canvas)
         key = cv2.waitKey(1) & 0xFF
+        self.last_key = chr(key) if key != 255 else ""
         if key in (ord("q"), 27) or cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
             self.close()
 

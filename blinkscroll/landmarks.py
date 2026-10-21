@@ -64,6 +64,7 @@ class LandmarkExtractor:
             yaw=yaw,
             pitch=pitch,
             roll=roll,
+            look_down=(scores.get("eyeLookDownLeft", 0.0) + scores.get("eyeLookDownRight", 0.0)) / 2,
         )
 
     def close(self) -> None:
