@@ -20,7 +20,7 @@ import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
 from .camera import CameraCapture  # noqa: E402
-from .config import PROJECT_DIR, load_config  # noqa: E402
+from .config import DATA_DIR, load_config  # noqa: E402
 from .gestures import GestureEngine  # noqa: E402
 from .landmarks import LandmarkExtractor  # noqa: E402
 from .pipeline import _beep  # noqa: E402
@@ -92,7 +92,7 @@ def main() -> int:
         return 1
     extractor = LandmarkExtractor(config.model_path, config.processing.inference_width)
     engine = GestureEngine(config)
-    path = PROJECT_DIR / "recordings" / time.strftime("guided-%Y%m%d-%H%M%S.csv")
+    path = DATA_DIR / "recordings" / time.strftime("guided-%Y%m%d-%H%M%S.csv")
     recorder = CsvRecorder(path)
     seq, aborted = 0, False
     period = 1.0 / config.processing.fps

@@ -17,11 +17,11 @@ from .gestures import GateChanged, GestureEngine, HoldEnded, Trigger
 from .recorder import read_samples
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="blinkscroll.replay")
     p.add_argument("csv", type=Path)
     p.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
-    args = p.parse_args()
+    args = p.parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
 
     config = load_config(args.config)

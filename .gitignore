@@ -9,3 +9,5 @@ recordings/
 # personal, generated on first run
 config.toml
 state.json
+build/
+dist/

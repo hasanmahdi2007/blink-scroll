@@ -7,12 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .config import PROJECT_DIR
+from .config import DATA_DIR
 from .eyes import Thresholds
 
 log = logging.getLogger(__name__)
 
-STATE_PATH = PROJECT_DIR / "state.json"
+STATE_PATH = DATA_DIR / "state.json"
 
 
 class AppState:

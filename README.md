@@ -18,18 +18,29 @@ and looking at your keyboard are ignored.
 
 ## Install (Windows 10 / 11)
 
-1. **[Download the ZIP](https://github.com/hasanmahdi2007/blink-scroll/archive/refs/heads/main.zip)** (or `git clone` this repo) and
-   extract it somewhere permanent, for example `Documents\BlinkScroll`.
-2. Double-click **`install.bat`**. It:
-   - installs Python 3.12 if you don't have it (through `winget`)
-   - installs the packages into a private folder (`.venv`)
-   - downloads the face model
-   - asks whether Blink Scroll should start with Windows
+1. **[Download `BlinkScroll-Setup.exe`](https://github.com/hasanmahdi2007/blink-scroll/releases/latest)**
+   (about 70 MB) from the latest release.
+2. Run it. You can choose a desktop shortcut and "start when Windows starts". Nothing else is
+   needed: no Python, no admin rights.
+3. Blink Scroll starts, and a round button appears on the right edge of your screen.
 
-   The first run takes a few minutes.
-3. That's it. Blink Scroll starts, and a round button appears on the right edge of your screen.
+Afterwards, open it like any app: **Start menu → Blink Scroll**, or the desktop shortcut.
+Uninstall it from **Settings → Apps**.
 
-To start it later, double-click **`run.bat`**, or just log in if you chose "start with Windows".
+> **"Windows protected your PC"?** The installer isn't code-signed (a certificate costs money),
+> so SmartScreen warns about any new app from a small publisher. Click **More info → Run
+> anyway**. The source code is all here, and the installer is built from it automatically by
+> GitHub ([release workflow](.github/workflows/release.yml)).
+
+<details>
+<summary>Alternative: run from source (for developers)</summary>
+
+1. Download or `git clone` this repo into a permanent folder.
+2. Double-click **`install.bat`**. It installs Python 3.12 if needed (through `winget`), the
+   packages into `.venv`, and the model.
+3. Start it with **`run.bat`**. `debug.bat` and `tune.bat` are there too.
+
+</details>
 
 ## First start: 6-second calibration
 
@@ -112,15 +123,20 @@ Everything is in **`config.toml`** (⚙ → *Open settings file*). Edit it, save
 
 People blink very differently, so there's a tuning kit:
 
-1. Quit Blink Scroll, then run **`tune.bat`**. It's a guided 3-minute session: read normally,
-   then do each gesture when you hear the beeps. It saves only numbers (scores and head angles)
-   to `recordings\`, never images.
-2. See what your settings would have done with that recording:
-   `.venv\Scripts\python.exe -m blinkscroll.replay recordings\guided-....csv`
+1. Quit Blink Scroll, then start **Start menu → Blink Scroll (tuning session)** (`tune.bat` when
+   running from source). It's a guided 3-minute session: read normally, then do each gesture
+   when you hear the beeps. It saves only numbers (scores and head angles), never images, to
+   `%LOCALAPPDATA%\BlinkScroll\recordings`.
+2. See what your settings would have done with that recording (from source):
+   `.venv\Scripts\python.exe -m blinkscroll.replay <recording.csv>`
 3. Change `config.toml` and replay again until deliberate gestures trigger and reading doesn't.
+   If you're not into that, open an issue with the recording attached and ask for help.
 
-`debug.bat` opens a live view of your eye scores, thresholds, head angles and every detected
-blink, which helps too.
+`BlinkScroll.exe --debug` (or `debug.bat`) opens a live view of your eye scores, thresholds, head
+angles and every detected blink.
+
+Settings, calibration and logs are stored in `%LOCALAPPDATA%\BlinkScroll` (the project folder
+when running from source).
 
 | Problem | Try |
 |---|---|
@@ -132,7 +148,9 @@ blink, which helps too.
 
 ## Uninstall
 
-Run **`uninstall.bat`** (stops it and removes it from Windows startup), then delete the folder.
+**Settings → Apps → Blink Scroll → Uninstall.** Your settings stay in
+`%LOCALAPPDATA%\BlinkScroll`; delete that folder too if you want everything gone. When running
+from source, use `uninstall.bat`, then delete the folder.
 
 ## How it works
 
@@ -195,6 +213,15 @@ reading looked too much like deliberate double blinks (only 2 of 11 attempts wer
 .venv\Scripts\python.exe -m tests.manual_scroll_check    # real wheel events into a test window
 .venv\Scripts\python.exe -m tools.make_readme_images     # regenerate the README images
 ```
+
+**Releasing:**
+1. Bump the version in `packaging/version_info.txt`.
+2. Push a tag such as `git tag v1.2.0 && git push origin v1.2.0`.
+3. GitHub Actions runs the tests, builds `BlinkScroll.exe` with PyInstaller
+   (`packaging/blinkscroll.spec`) and the installer with Inno Setup (`packaging/installer.iss`),
+   then attaches `BlinkScroll-Setup-<version>.exe` to the release.
+
+To build locally, run PyInstaller on the spec, then `ISCC.exe packaging\installer.iss`.
 
 | Module | Does |
 |---|---|

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import os
+import sys
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,9 +15,18 @@ import tomli_w
 
 log = logging.getLogger(__name__)
 
+# Running from source: everything lives in the project folder.
+# Installed app (PyInstaller "frozen" exe): read-only resources (the model) are bundled next to
+# the exe; settings, calibration, logs and recordings go to %LOCALAPPDATA%\BlinkScroll, because
+# Program Files is not writable.
+FROZEN = bool(getattr(sys, "frozen", False))
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG_PATH = PROJECT_DIR / "config.toml"
-DEFAULT_MODEL_PATH = PROJECT_DIR / "models" / "face_landmarker.task"
+RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", PROJECT_DIR)) if FROZEN else PROJECT_DIR
+DATA_DIR = (Path(os.environ.get("LOCALAPPDATA", Path.home())) / "BlinkScroll" if FROZEN
+            else PROJECT_DIR)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DEFAULT_CONFIG_PATH = DATA_DIR / "config.toml"
+DEFAULT_MODEL_PATH = RESOURCE_DIR / "models" / "face_landmarker.task"
 
 
 @dataclass

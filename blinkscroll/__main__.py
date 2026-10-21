@@ -14,14 +14,14 @@ from pathlib import Path
 os.environ.setdefault("GLOG_minloglevel", "2")  # silence MediaPipe/TFLite start-up chatter
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
-from .config import DEFAULT_CONFIG_PATH, PROJECT_DIR  # noqa: E402
+from .config import DATA_DIR, DEFAULT_CONFIG_PATH  # noqa: E402
 
 log = logging.getLogger("blinkscroll")
-LOG_PATH = PROJECT_DIR / "blinkscroll.log"
+LOG_PATH = DATA_DIR / "blinkscroll.log"
 
 
 def _default_recording() -> Path:
-    return PROJECT_DIR / "recordings" / time.strftime("scores-%Y%m%d-%H%M%S.csv")
+    return DATA_DIR / "recordings" / time.strftime("scores-%Y%m%d-%H%M%S.csv")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -35,6 +35,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--paused", action="store_true", help="start paused (camera off)")
     p.add_argument("--autostart", choices=["on", "off"],
                    help="enable/disable starting with Windows, then exit")
+    p.add_argument("--tune", action="store_true",
+                   help="guided 3-minute tuning recording (quit the running app first)")
+    p.add_argument("--replay", type=Path, metavar="CSV",
+                   help="replay a recording with the current settings and print the gestures")
     p.add_argument("--duration", type=float, default=0.0, help=argparse.SUPPRESS)  # measuring
     p.add_argument("--force-low-power", action="store_true", help=argparse.SUPPRESS)
     return p.parse_args(argv)
@@ -72,6 +76,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.autostart:
         system.set_autostart(args.autostart == "on")
+        return 0
+    if args.tune:
+        from .guided import main as tune
+        return tune()
+    if args.replay:
+        from .replay import main as replay
+        replay([str(args.replay), "--config", str(args.config)])
         return 0
 
     instance = system.SingleInstance()

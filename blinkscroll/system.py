@@ -10,7 +10,7 @@ import sys
 from ctypes import wintypes
 from pathlib import Path
 
-from .config import PROJECT_DIR
+from .config import FROZEN, PROJECT_DIR
 
 log = logging.getLogger(__name__)
 
@@ -77,10 +77,13 @@ class SingleInstance:
 # ----------------------------------------------------------------------------- autostart
 
 
-def _pythonw() -> Path:
+def _launch_command() -> tuple[Path, str, Path]:
+    """(target, arguments, working dir) that start the app without a console."""
     exe = Path(sys.executable)
-    candidate = exe.with_name("pythonw.exe")
-    return candidate if candidate.exists() else exe
+    if FROZEN:  # installed app: BlinkScroll.exe itself
+        return exe, "", exe.parent
+    pythonw = exe.with_name("pythonw.exe")
+    return (pythonw if pythonw.exists() else exe), "-m blinkscroll", PROJECT_DIR
 
 
 def autostart_enabled() -> bool:
@@ -96,10 +99,12 @@ def set_autostart(enabled: bool) -> None:
     STARTUP_DIR.mkdir(parents=True, exist_ok=True)
     ps = (
         "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:BS_LNK);"
-        "$s.TargetPath = $env:BS_TARGET; $s.Arguments = '-m blinkscroll';"
+        "$s.TargetPath = $env:BS_TARGET; $s.Arguments = $env:BS_ARGS;"
         "$s.WorkingDirectory = $env:BS_DIR; $s.Description = 'Blink Scroll'; $s.Save()"
     )
-    env = dict(os.environ, BS_LNK=str(SHORTCUT), BS_TARGET=str(_pythonw()), BS_DIR=str(PROJECT_DIR))
+    target, args, workdir = _launch_command()
+    env = dict(os.environ, BS_LNK=str(SHORTCUT), BS_TARGET=str(target), BS_ARGS=args,
+               BS_DIR=str(workdir))
     subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], env=env,
                    check=True, capture_output=True, creationflags=0x08000000)  # CREATE_NO_WINDOW
     log.info("Autostart enabled: %s", SHORTCUT)
