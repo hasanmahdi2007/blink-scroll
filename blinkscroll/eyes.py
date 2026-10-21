@@ -260,6 +260,7 @@ class EyeTracker:
         """Skip calibration (tests, or a saved calibration)."""
         self.thresholds = thresholds
         self.calibrator = None
+        self._pending = [e for e in self._pending if not isinstance(e, CalibrationPhase)]
         self._reset_eyes()
 
     def apply_config(self, config: Config) -> None:
