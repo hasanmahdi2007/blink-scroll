@@ -21,7 +21,7 @@ from .controls.hotkeys import Hotkeys
 from .controls.tray import MenuActions, TrayIcon
 from .controls.widget import FloatingWidget
 from .eyes import Calibrated
-from .gestures import EngineEvent, Trigger
+from .gestures import EngineEvent, HoldEnded, Trigger
 from .pipeline import Pipeline, State
 from .state import AppState
 
@@ -29,6 +29,21 @@ log = logging.getLogger(__name__)
 
 POLL_MS = 150
 LOCK_CHECK_MS = 2000
+_ARROW = {"up": "↑", "down": "↓"}
+
+
+def gesture_hint(config: Config) -> str:
+    """Short reminder of the enabled gestures, e.g. 'Left wink ↓ · Long blink ↑'."""
+    g = config.gestures
+    parts = []
+    if g.wink.enabled:
+        parts.append(f"Left wink {_ARROW.get(g.wink.left_direction, '')}")
+        parts.append(f"Right wink {_ARROW.get(g.wink.right_direction, '')}")
+    if g.long_blink.enabled:
+        parts.append(f"Long blink {_ARROW.get(g.long_blink.direction, '')}")
+    if g.double_blink.enabled:
+        parts.append(f"Double blink {_ARROW.get(g.double_blink.direction, '')}")
+    return " · ".join(parts) or "No gestures enabled"
 
 
 class App:
@@ -69,6 +84,7 @@ class App:
         self.root.withdraw()  # the root is only an event loop; the circle is a Toplevel
         self.widget: FloatingWidget | None = FloatingWidget(
             self.root, self.config.widget, actions, self._on_widget_moved)
+        self.widget.hint = gesture_hint(self.config)
         self.tray = TrayIcon(actions)
         self.hotkeys = Hotkeys(on_toggle=lambda: self.call(self.toggle),
                                on_recalibrate=lambda: self.call(self.recalibrate),
@@ -160,6 +176,7 @@ class App:
         self.pipeline.apply_config(config)
         self.hotkeys.start(config.hotkeys)
         if self.widget is not None:
+            self.widget.hint = gesture_hint(config)
             self.widget.apply_config(config.widget)
             if config.widget.enabled and not self.widget.visible:
                 self.widget.show()
@@ -188,8 +205,14 @@ class App:
 
     def _on_event(self, ev: EngineEvent) -> None:
         """Called on the pipeline thread."""
-        if isinstance(ev, Trigger) and self.widget is not None:
-            self.call(self.widget.pulse)
+        widget = self.widget
+        if isinstance(ev, Trigger) and widget is not None:
+            if ev.hold:
+                self.call(lambda d=ev.direction: widget.set_scrolling(d))
+            else:
+                self.call(widget.pulse)
+        elif isinstance(ev, HoldEnded) and widget is not None:
+            self.call(lambda: widget.set_scrolling(None))
         elif isinstance(ev, Calibrated):
             self.state_store.set_calibration(ev.thresholds, self.pipeline.engine.neutral)
 

@@ -1,204 +1,212 @@
 # Blink Scroll
 
-Hands-free "lazy scrolling" for Windows. Blink Scroll watches you through the laptop webcam and
-scrolls the window under your mouse cursor when you make a **deliberate** eye gesture, by default
-a fast double blink. Natural blinking (15-20 times a minute, often in pairs) is filtered out.
+**Scroll any window hands-free with your eyes.** Blink Scroll watches you through your laptop
+webcam and scrolls the window under your mouse cursor when you make a deliberate eye gesture.
+**Hold a wink, and the page keeps scrolling for as long as you hold it.** Normal blinking, reading
+and looking at your keyboard are ignored.
 
-* Runs 100% locally with Google's pretrained MediaPipe FaceLandmarker. No training, no cloud.
-* **Privacy:** frames are never stored or sent anywhere. The only network access is the one-time
-  model download. `--record` saves numbers only (scores and head angles), never images.
-* **Low power:** about 1-2% of total CPU while active. Drops further when nobody is in front of
-  the camera, and to zero with the camera released when paused or when Windows is locked.
+![Blink Scroll button states](docs/images/button-states.png)
 
-## Setup
+- **Private.** Everything runs on your computer. Camera images are never saved or sent
+  anywhere. The only internet use is a one-time 3.7 MB model download during setup.
+- **Light on battery.** About 2-3% of total CPU while you use it, under 1% when nobody is in
+  front of the camera, and **0% with the camera off** when you switch it off or lock Windows.
+- **No training.** It uses Google's pretrained MediaPipe face model plus ordinary logic.
+- Works with glasses.
 
-Requires Windows 10/11 and a webcam.
+## Install (Windows 10 / 11)
 
-1. Install Python 3.12 (MediaPipe supports 3.9-3.14; 3.12 has the most mature wheels):
-   `winget install Python.Python.3.12`
-2. In the project folder:
-   ```
-   %LOCALAPPDATA%\Programs\Python\Python312\python.exe -m venv .venv
-   .venv\Scripts\python.exe -m pip install -r requirements.txt
-   .venv\Scripts\python.exe -m blinkscroll.download_model
-   ```
-   The model (`models/face_landmarker.task`, ~3.7 MB) is downloaded once.
+1. **[Download the ZIP](https://github.com/hasanmahdi2007/blink-scroll/archive/refs/heads/main.zip)** (or `git clone` this repo) and
+   extract it somewhere permanent, for example `Documents\BlinkScroll`.
+2. Double-click **`install.bat`**. It:
+   - installs Python 3.12 if you don't have it (through `winget`)
+   - installs the packages into a private folder (`.venv`)
+   - downloads the face model
+   - asks whether Blink Scroll should start with Windows
 
-## Running
+   The first run takes a few minutes.
+3. That's it. Blink Scroll starts, and a round button appears on the right edge of your screen.
 
-| How | What |
-|---|---|
-| `run.bat` | Normal use: no console, tray icon plus floating circle. |
-| `debug.bat` | Debug window and console log of every blink and trigger. |
-| `debug.bat --record` | The same, and saves the score time series to `recordings\*.csv`. |
-| `.venv\Scripts\python.exe -m blinkscroll --autostart on` | Start with Windows (`off` to undo; also in the menus). |
+To start it later, double-click **`run.bat`**, or just log in if you chose "start with Windows".
 
-Other flags: `--paused` (start with the camera off), `--stats` (log CPU and FPS every 10 s),
-`--config FILE`.
+## First start: 6-second calibration
 
-### First start: calibration (about 6 s)
+The button turns blue and shows instructions:
 
-1. Blue circle, label "look at the screen with eyes open": keep your eyes open for 3 s.
+1. **Look at the screen with your eyes open** for 3 seconds.
 2. **One beep:** close both eyes and keep them closed.
 3. **Two beeps:** open them again. Done.
 
-The result is saved, so later starts skip this. Recalibrate from the tray or circle menu, or with
-**Ctrl+Alt+C**, when you put on or take off glasses or the lighting changes a lot.
+Calibration is saved. Run it again (the ↻ button) if you put on or take off glasses, the lighting
+changes a lot, or detection feels off.
 
-### Controls
+## How to scroll
 
-* **Floating circle** on the screen edge. It hides itself and leaves a small sliver; move the
-  mouse onto the sliver and it slides out.
-  * **Click:** on/off. Off releases the camera, so the camera light goes out.
-  * **Drag:** move it along the edge, or drop it on the other half of the screen to switch sides.
-  * **Right-click:** menu.
-  * It flashes white on every scroll.
-* **Tray icon:** the same menu. Double-click to pause or resume.
-* **Hotkeys:** **Ctrl+Alt+B** pause/resume, **Ctrl+Alt+C** recalibrate, **Ctrl+Alt+Q** quit.
+| Gesture | Scrolls | |
+|---|---|---|
+| **Wink your left eye and hold it** | ↓ down | Starts after about ¼ s, speeds up the longer you hold, stops when you open the eye |
+| **Wink your right eye and hold it** | ↑ up | The same |
+| **Close both eyes for about 0.6 s and hold** | ↑ up | For people who can't wink their right eye (common) |
+
+Point your mouse at the page you want to scroll, because scrolling goes to the window under the
+cursor. Gestures only count while you face the screen. Looking down at the keyboard or turning
+your head away is ignored.
+
+You can change every gesture and its direction, turn on a *fast double blink*, or switch from
+"scroll while held" to fixed jumps. See [Settings](#settings).
+
+## The button
+
+![Settings panel](docs/images/settings-panel.png)
+
+- **Hover** to expand it: status, **⏸ on/off**, **↻ recalibrate**, **⚙ settings**.
+- **Click** the round button to turn it on or off. Off releases the camera, so the camera light
+  goes out.
+- **Drag** it up or down the edge, or to the other side of the screen.
+- It **tucks itself away** to a thin sliver at the screen edge. Touch the sliver and it slides
+  out.
+- **Colours:**
 
 | Colour | Meaning |
 |---|---|
-| green | active, watching for gestures |
-| teal | face seen, but you are not facing the screen (gestures ignored) |
-| amber | no face; after 10 s it drops to low-power 4 fps |
+| green | active |
+| teal | you're not facing the screen, so gestures are ignored |
+| amber | no face; after 10 s it drops to low-power mode |
 | blue | calibrating |
-| grey | paused, camera off |
-| red | camera error (busy in another app, or unplugged); retries every 3 s |
+| grey | off, camera released |
+| red | camera unavailable (used by another app?); it retries automatically |
 
-### Gestures
+- The same menu is in the **tray icon**. If you hide the button, the tray brings it back.
 
-| Gesture | Default | Action |
-|---|---|---|
-| Fast double blink: two full blinks, the 2nd ending within 0.7 s of the 1st starting | **on** | scroll down (5 notches over 150 ms) |
-| Long blink: both eyes closed for 0.6 s or more | off | scroll down **while held** |
-| Wink: one eye closed for 0.25 s or more, the other clearly open | off | **while held**: left = down, right = up (configurable) |
+**Keyboard shortcuts:**
 
-**Hold to scroll** (`scroll.hold_to_scroll`, on by default): once a wink or long blink is
-recognised, the page keeps scrolling for as long as you hold it, so how long you hold decides
-how far it goes. The speed starts at 4 notches/s and ramps to 12 notches/s over 2 s. It stops
-when you open the eye, and after 20 s at the latest. After every gesture there is a 1 s
-cooldown.
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Alt+B` | on / off |
+| `Ctrl+Alt+C` | recalibrate |
+| `Ctrl+Alt+Q` | quit |
 
-Winks use their own lower closed line (40% of the way from open to closed), because a wink
-closes the eye less than a full blink. That is safe because the other eye must stay open at the
-same time. If left and right come out reversed, set `detection.swap_eyes = true`.
+Windows being locked also turns the camera off automatically, and it comes back on when you
+unlock.
 
-**Which gesture?** It depends on how you blink. Run `tune.bat` (a guided 3-minute recording) and
-compare the options with the replay tool. For one user with glasses, the recordings gave:
-- long blink: 12 of 12 detected
-- left wink: every clean wink detected
-- fast double blink: only 2 of 11, because their deliberate double blinks often merged into one
-  closure, and natural blink pairs while reading looked the same
-- false scrolls across 200 s of reading, keyboard use and head turning: 0-1
+## Settings
+
+Everything is in **`config.toml`** (⚙ → *Open settings file*). Edit it, save, then choose
+⚙ → *Reload settings*; no restart is needed. Delete the file to restore the defaults.
+
+| What | Setting |
+|---|---|
+| Gestures on/off | `gestures.wink.enabled`, `gestures.long_blink.enabled`, `gestures.double_blink.enabled` |
+| Directions | `gestures.wink.left_direction` / `right_direction`, `gestures.long_blink.direction` (`"up"` / `"down"`) |
+| Scroll speed while holding | `scroll.hold_start_notches_per_s` (default 4), `scroll.hold_max_notches_per_s` (12), `scroll.hold_ramp_s` (2) |
+| One fixed jump per gesture instead | `scroll.hold_to_scroll = false`, size in `scroll.amount` |
+| Long-blink length | `gestures.long_blink.min_duration_s` (0.6) |
+| Left/right swapped? | `detection.swap_eyes = true` |
+| Head turn / looking-down limits | `[head_pose]` section |
+| Responsiveness vs. battery | `processing.idle_fps` (8) and `processing.fps` (20) |
+| Hotkeys | `[hotkeys]` section |
+
+### Tuning it to your eyes
+
+People blink very differently, so there's a tuning kit:
+
+1. Quit Blink Scroll, then run **`tune.bat`**. It's a guided 3-minute session: read normally,
+   then do each gesture when you hear the beeps. It saves only numbers (scores and head angles)
+   to `recordings\`, never images.
+2. See what your settings would have done with that recording:
+   `.venv\Scripts\python.exe -m blinkscroll.replay recordings\guided-....csv`
+3. Change `config.toml` and replay again until deliberate gestures trigger and reading doesn't.
+
+`debug.bat` opens a live view of your eye scores, thresholds, head angles and every detected
+blink, which helps too.
+
+| Problem | Try |
+|---|---|
+| Scrolls by itself while reading | Recalibrate. Raise `gestures.long_blink.min_duration_s` (0.8). |
+| Winks not recognised | Recalibrate. Lower `gestures.wink.closed_fraction` (0.3). Raise `open_eye_margin` (0.15) if your other eye squints. |
+| Scroll stops while still winking | Raise `detection.release_s` (0.25). |
+| Nothing works while facing the screen (teal button) | Head limits are too strict for how you sit: raise `head_pose.max_pitch_down_deg` / `max_look_down`. |
+| Right wink never works | Many people can't wink that eye cleanly. Use the long blink for up (on by default). |
+
+## Uninstall
+
+Run **`uninstall.bat`** (stops it and removes it from Windows startup), then delete the folder.
 
 ## How it works
 
 ```
-camera thread --newest frame only--> processing thread (capped 20 fps, 4 fps in low power)
-  |                                    |
-  | cv2 DirectShow 640x480             +-> downscale to 320 px -> MediaPipe FaceLandmarker (VIDEO mode)
-  |                                    |     blendshapes: eyeBlinkLeft/Right, eyeLookDownLeft/Right
-  |                                    |     4x4 transform matrix -> yaw / pitch / roll
-  |                                    +-> EyeTracker   (eyes.py, pure)
-  |                                    |     EMA smoothing -> calibrated per-eye thresholds
-  |                                    |     -> hysteresis -> Blink events
-  |                                    +-> GestureEngine (gestures.py, pure)
-  |                                    |     facing-screen gate, double/long/wink, cooldown,
-  |                                    |     slow baseline adaptation
-  |                                    +-> Scroller (actions.py): smooth wheel steps
-main thread: Tk event loop (floating circle) <- queue <- tray, hotkeys, pipeline state
+camera thread ──newest frame only──► processing thread (8 fps idle, 20 fps while an eye closes)
+                                       ├─ MediaPipe FaceLandmarker → eyeBlinkLeft/Right, eyeLookDown,
+                                       │                              head pose (yaw / pitch / roll)
+                                       ├─ EyeTracker (eyes.py): smoothing → per-eye calibrated
+                                       │   thresholds → hysteresis → blinks
+                                       ├─ GestureEngine (gestures.py): facing-screen gate, wink / long
+                                       │   blink / double blink, hold & release, cooldown
+                                       └─ Scroller (actions.py): wheel events to the window under cursor
+main thread: Tk event loop → floating button (per-pixel-alpha window), tray, hotkeys
 ```
 
-* **Latest frame only.** The capture thread overwrites one slot, so stale frames are dropped and
-  there is never a backlog. `read()` blocks until the next frame arrives, which keeps it cheap.
-* **Smoothing.** An exponential moving average with a 40 ms time constant, so it behaves the same
-  at any frame rate. It removes jitter while adding less than a frame of lag.
-* **Calibration** measures both your open level *and* your closed level, per eye. With glasses a
-  fully closed eye may only score about 0.45-0.55 instead of about 1.0, so fixed thresholds fail.
-  For each eye, the "closed" threshold sits 60% of the way from open to closed and the "open"
-  threshold sits at 30%.
-* **Hysteresis.** An eye counts as closed above the closed threshold and as open again only below
-  the open threshold, so a score hovering near one line can't flicker. A blink means both eyes
-  closed and then both open again. Closures shorter than 2 frames above the threshold are noise.
-* **False-trigger defences.** A double blink needs two *full* closures (at least 70% of your
-  calibrated closed level, while many natural blinks are partial), each under 0.45 s, inside the
-  0.7 s window. Then the 1 s cooldown applies.
-* **Facing-screen gate.** Gestures are ignored when your head is turned (yaw over 20°), tilted
-  (pitch over 12°, roll over 20°) or your **eyes look down** (`eyeLookDown` over 0.45). The last
-  case catches glancing at the keyboard without moving your head, which also raises the blink
-  score. Angles are measured relative to your neutral posture recorded during calibration. The
-  gate is read while your eyes are open and held while they are closed, because pose and gaze
-  estimates are unreliable with the lids shut.
-* **Adaptive baseline.** While you face the screen with your eyes open, the open level drifts
-  slowly toward the current value (time constant about 25 s, limited to ±0.1), so lighting
-  changes don't break detection.
-* **Power.**
-  * After 10 s with no face, the app processes only 4 fps.
-  * Pausing, or Windows being locked, releases the camera and blocks the processing thread
-    entirely.
-  * Tk, tray and hotkeys are event-driven; the UI queue is checked 6-7 times a second.
+- **Calibration per eye, open *and* closed.** With glasses a fully closed eye may only score
+  about 0.45 instead of about 1.0, so fixed thresholds fail. Thresholds sit a fixed fraction
+  of the way between your own open and closed levels.
+- **False-trigger defences:**
+  - a long blink needs one continuous, nearly full closure (two quick natural blinks don't add
+    up to one)
+  - looking down at the keyboard lowers the lids only about 55-75%, so it doesn't count
+  - a wink needs the other eye clearly open
+- **Facing-screen gate:** gestures are ignored while your head is turned or lowered, or your
+  eyes look down. Angles are measured relative to your own posture, which the app follows
+  slowly. The gate is judged from just *before* a gesture starts, because closing the eyes
+  confuses gaze estimates.
+- **Hold and release:**
+  - scrolling ramps from 4 to 12 notches/s
+  - a release needs 0.15 s of open eye, so one noisy frame doesn't stop it
+  - there's a 20 s safety limit
+- **Power:**
+  - the model costs a fixed ~13 ms per frame, so the frame rate decides CPU use; it runs at
+    8 fps while your eyes are open and jumps to 20 fps when one starts to close
+  - with no face for 10 s it drops to 4 fps
+  - off or locked releases the camera entirely
 
-## Tuning guide
+### Measured (Windows 11 laptop, face in view unless noted)
 
-Settings live in `config.toml`, created with defaults on first run. Edit it, then choose
-**Reload config** from either menu; no restart is needed. Delete the file to restore defaults.
+| Mode | CPU, one core | CPU, whole machine |
+|---|---|---|
+| Active, adaptive 8 → 20 fps (default) | 17-22% | 2.2-2.8% |
+| Active, fixed 20 fps | 34-37% | 4.3-4.6% |
+| No face, low-power 4 fps | 6-7% | <1% |
+| Off / Windows locked (camera released) | 0% | 0% |
 
-1. Run `debug.bat --record`. The debug window shows raw (dim) and smoothed (bright) scores, the
-   red (closed) and green (open) threshold lines, head angles relative to neutral, gaze-down, the
-   gate, and the blink and trigger counters.
-2. Read normally for a few minutes, then do some deliberate double blinks.
-3. Replay the recording with any config change, without the camera:
-   `.venv\Scripts\python.exe -m blinkscroll.replay recordings\scores-....csv`
+Tuned on labelled recordings of a real user with glasses:
+- **long blink:** 12/12 detected
+- **left wink:** every clean wink detected
+- **false scrolls:** 0-1 across 200 s of reading, keyboard use and head turning
 
-| Symptom | Try |
-|---|---|
-| Natural blink pairs scroll | Lower `gestures.double_blink.window_s` (e.g. 0.55); raise `min_closure` (0.8). |
-| Deliberate double blinks missed | Blink a bit more firmly. Raise `window_s` (0.8); lower `min_closure` (0.6); raise `processing.fps` (25). |
-| Blinks not counted at all | Recalibrate. Lower `calibration.closed_fraction` (0.5). |
-| Triggers while looking at the keyboard | Lower `head_pose.max_look_down` (0.35) or `max_pitch_deg` (8). |
-| Nothing works while you face the screen | The gate is too strict (teal circle): check the debug window's gate line, raise the limit it names. |
-| Scroll too far or too short | `scroll.amount` (notches; 1 notch is about 3 lines). |
-| Scroll should feel smoother | `scroll.steps = 10` gives half-notch steps (most modern apps support it). |
-
-## Measured performance
-
-Laptop: Windows 11, built-in webcam at 640x480, inference on 320-px frames (about 3.3 ms per
-frame). "% of total" covers all 8 logical CPUs.
-
-With a face in view, the landmark and blendshape models cost about 13 ms per frame whatever the
-image size, so the frame rate is what decides CPU use. The app therefore runs an **adaptive
-frame rate**:
-- 8 fps while your eyes are simply open
-- 20 fps as soon as an eye starts closing, while a gesture is held, and during calibration
-- no boost while you look away or down, because no gesture can count then
-
-Replaying the recordings even at a flat 6 fps still caught every long blink.
-
-| Mode (face in view unless noted) | CPU (one core) | CPU (total) | Processing FPS |
-|---|---|---|---|
-| **Active, adaptive 8 -> 20 fps (default)** | **17-22%** | **2.2-2.8%** | 8-10 average |
-| Active, fixed 20 fps (`idle_fps = 20`) | 34-37% | 4.3-4.6% | 20 |
-| Active, fixed 10 fps | ~20% (bare pipeline) | ~2.5% | 10 |
-| Low-power, no face for 10 s (4 fps) | 0.3-1.1% | 0.04-0.14% | <=4 |
-| Paused / Windows locked (camera released) | 0.0% | 0.0% | 0 |
-
-What did *not* help:
-- a smaller camera resolution (320x240): same CPU
-- a smaller model input: the model resizes internally anyway
-- pinning the process to 1-2 cores: about 2% less, not worth it
-
-The low-power figure was taken while the session was locked and the camera delivered black
-frames at ~1 fps, so treat it as a lower bound.
+The fast double blink is off by default because, for that user, natural blink pairs while
+reading looked too much like deliberate double blinks (only 2 of 11 attempts were caught).
 
 ## Development
 
 ```
-.venv\Scripts\python.exe -m pytest              # 42 unit tests (gesture state machine etc.)
-.venv\Scripts\python.exe -m tests.manual_scroll_check   # real wheel events into a test window
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.venv\Scripts\python.exe -m pytest                       # 70 tests: gesture engine, holds, rendering, ...
+.venv\Scripts\python.exe -m tests.manual_scroll_check    # real wheel events into a test window
+.venv\Scripts\python.exe -m tools.make_readme_images     # regenerate the README images
 ```
 
-Modules: `camera.py` (capture thread), `landmarks.py` (MediaPipe to `Sample`), `pose.py`,
-`eyes.py` and `gestures.py` (pure, unit-tested logic), `actions.py` (scrolling), `pipeline.py`
-(processing loop, low-power, pause), `controls/` (hotkeys, tray, floating circle), `app.py`
-(wiring), `config.py`, `recorder.py` and `replay.py`, `system.py` (lock detection, single instance,
-autostart).
+| Module | Does |
+|---|---|
+| `camera.py` | capture thread |
+| `landmarks.py`, `pose.py` | MediaPipe → `Sample` |
+| `eyes.py`, `gestures.py` | pure, unit-tested logic |
+| `actions.py` | scrolling |
+| `pipeline.py` | processing loop, adaptive fps, pause |
+| `controls/` | button (`look.py` drawing, `layered.py` window, `widget.py` behaviour), tray, hotkeys |
+| `app.py` | wiring |
+| `config.py` | settings |
+| `recorder.py`, `replay.py`, `guided.py` | tuning kit |
+| `system.py` | lock detection, single instance, autostart |
+
+## License
+
+[MIT](LICENSE)

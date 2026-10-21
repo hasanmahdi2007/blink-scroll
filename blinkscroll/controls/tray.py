@@ -10,6 +10,7 @@ import pystray
 from PIL import Image, ImageDraw
 
 from . import STATE_COLORS, STATE_LABELS
+from .look import ICONS, _font, has_icon_font
 
 log = logging.getLogger(__name__)
 
@@ -28,24 +29,30 @@ class MenuActions:
     autostart_enabled: Callable[[], bool]
 
 
-def make_icon(color: str, size: int = 64) -> Image.Image:
-    """An eye-shaped glyph on a coloured disc (drawn at 4x and downsampled = anti-aliased)."""
+def make_icon(color: str, size: int = 64, paused: bool = False) -> Image.Image:
+    """Same style as the floating button: dark disc, coloured status ring, eye icon."""
     big = size * 4
     img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse((4, 4, big - 4, big - 4), fill=color)
-    w, h = big * 0.62, big * 0.34
-    cx, cy = big / 2, big / 2
-    d.ellipse((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2), fill="white")
-    r = h * 0.36
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill="#111827")
+    d.ellipse((2, 2, big - 2, big - 2), fill=(23, 25, 31, 255))
+    ring = big * 0.09
+    d.ellipse((ring, ring, big - ring, big - ring), outline=color, width=round(big * 0.1))
+    cx = cy = big / 2
+    if has_icon_font():
+        glyph = ICONS["eye_off" if paused else "eye"]
+        d.text((cx, cy + big * 0.02), glyph, font=_font("icon", round(big * 0.46)),
+               fill=(255, 255, 255, 255), anchor="mm")
+    else:
+        w, h = big * 0.5, big * 0.28
+        d.ellipse((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2), fill="white")
     return img.resize((size, size), Image.LANCZOS)
 
 
 class TrayIcon:
     def __init__(self, actions: MenuActions) -> None:
         self._a = actions
-        self._icons = {state: make_icon(color) for state, color in STATE_COLORS.items()}
+        self._icons = {state: make_icon(color, paused=state == "paused")
+                       for state, color in STATE_COLORS.items()}
         self._state = "starting"
         menu = pystray.Menu(
             pystray.MenuItem(lambda _: STATE_LABELS.get(self._state, self._state), None,

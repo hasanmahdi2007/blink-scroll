@@ -75,7 +75,9 @@ class DetectionConfig:
 
 @dataclass
 class DoubleBlinkConfig:
-    enabled: bool = True
+    # Off by default: in testing, natural blink pairs while reading looked too much like
+    # deliberate double blinks for some people. Run tune.bat to check how it works for you.
+    enabled: bool = False
     window_s: float = 0.7  # 2nd blink must end within this long after the 1st one started
     max_blink_s: float = 0.45  # longer closures are not part of a double blink
     # Each blink must close the eyes at least this far from the open to the closed level;
@@ -86,17 +88,17 @@ class DoubleBlinkConfig:
 
 @dataclass
 class LongBlinkConfig:
-    enabled: bool = False
+    enabled: bool = True
     min_duration_s: float = 0.6  # continuous firm closure; natural blinks are ~0.1-0.35 s
     # Both eyes must be at least this far from open to closed. Looking down at the keyboard
     # lowers the lids to ~55-75% for seconds; a real long blink reaches ~100%.
     min_closure: float = 0.85
-    direction: str = "down"
+    direction: str = "up"
 
 
 @dataclass
 class WinkConfig:
-    enabled: bool = False
+    enabled: bool = True
     # The eye that must stay open must be at most this far above its open baseline.
     open_eye_margin: float = 0.1
     # Winks close the eye less than full blinks, so they use their own (lower) thresholds,
@@ -105,8 +107,8 @@ class WinkConfig:
     closed_fraction: float = 0.4
     release_fraction: float = 0.25  # a held wink ends when the eye opens below this
     min_duration_s: float = 0.25
-    left_direction: str = "up"  # winking the left eye
-    right_direction: str = "down"  # winking the right eye
+    left_direction: str = "down"  # winking the left eye
+    right_direction: str = "up"  # winking the right eye
 
 
 @dataclass

@@ -16,7 +16,10 @@ from .synth import Seq
 def test_recording_replays_to_the_same_gestures(tmp_path: Path) -> None:
     seq = Seq().calibration().open(1).blink(0.12).open(0.15).blink(0.12).open(2).blink().open(1)
     path = tmp_path / "rec.csv"
-    engine = GestureEngine(Config(), expected_fps=20)
+    cfg = Config()
+    cfg.gestures.double_blink.enabled = True
+    cfg.gestures.wink.enabled = cfg.gestures.long_blink.enabled = False
+    engine = GestureEngine(cfg, expected_fps=20)
     recorder = CsvRecorder(path)
     live = []
     for s in seq.samples:
@@ -28,7 +31,7 @@ def test_recording_replays_to_the_same_gestures(tmp_path: Path) -> None:
     header = path.read_text(encoding="utf-8").splitlines()[0]
     assert "raw_left" in header and "image" not in header  # numbers only
 
-    replay_engine = GestureEngine(Config(), expected_fps=20)
+    replay_engine = GestureEngine(cfg, expected_fps=20)
     replayed = []
     for s in read_samples(path):
         replayed += [e for e in replay_engine.update(s)[1] if isinstance(e, Trigger)]

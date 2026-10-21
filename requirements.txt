@@ -6,4 +6,3 @@ pystray==0.19.5
 Pillow==13.0.0
 tomli_w==1.2.0
 psutil==7.2.2
-pytest==9.1.1

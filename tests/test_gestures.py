@@ -17,6 +17,9 @@ def engine(**gestures: bool) -> GestureEngine:
     g.double_blink.enabled = gestures.get("double", True)
     g.long_blink.enabled = gestures.get("long", False)
     g.wink.enabled = gestures.get("wink", False)
+    g.wink.left_direction, g.wink.right_direction = "up", "down"
+    g.long_blink.direction = "down"
+    cfg.scroll.hold_to_scroll = False  # one-shot triggers; hold mode has its own tests
     e = GestureEngine(cfg, expected_fps=20)
     e.set_thresholds(Thresholds.compute(OPEN, CLOSED, CalibrationConfig()))
     return e
@@ -158,7 +161,7 @@ def test_neutral_pose_follows_slow_posture_change() -> None:
     assert e.neutral[1] > 10
 
 
-def test_long_blink_disabled_by_default() -> None:
+def test_long_blink_not_detected_when_disabled() -> None:
     assert triggers(engine(), Seq().open(1).closed(1.5).open(1)) == []
 
 
@@ -265,7 +268,10 @@ def test_gesture_works_again_after_looking_back_up() -> None:
 
 
 def test_full_flow_calibration_then_double_blink() -> None:
-    e = GestureEngine(Config(), expected_fps=20)
+    cfg = Config()
+    cfg.gestures.double_blink.enabled = True
+    cfg.gestures.wink.enabled = cfg.gestures.long_blink.enabled = False
+    e = GestureEngine(cfg, expected_fps=20)
     seq = Seq().calibration().open(1).blink(0.12).open(0.15).blink(0.12).open(1)
     result = triggers(e, seq)
     assert [t.gesture for t in result] == ["double_blink"]
